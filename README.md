@@ -28,13 +28,28 @@ flowchart LR
 - **No AI configured**: the app still works fully through keyword matching, the template library and the sliders. It shows "AI not configured" instead of pretending.
 - The AI can also answer `"none"` for prompts that aren't a simulation, such as "bake me a cake". You then get the manual picker.
 
-## The simulation library
+## Experimental mode: the AI writes a new simulation
+
+The library can't cover everything, so when no built-in simulation shows what you asked for (for example "ants carrying food back to their nest" or "people evacuating a stadium through two exits"), the AI writes a brand-new simulation in JavaScript on the spot:
+
+1. The code streams onto the screen as the model writes it.
+2. It calls a small drawing kit (`art.car`, `art.person`, `art.ant`, `art.tree`, `art.water`, `art.light`, ...), so objects look like what they are instead of dots.
+3. It runs only inside a **sandboxed iframe**: opaque origin, no access to the app, and a Content-Security-Policy that blocks all network requests. A watchdog stops it if it freezes.
+4. Before you see it, it runs in a hidden sandbox: `init`, 60 `step`s, a `draw`, and `stats`. If anything throws, the error goes back to the AI for one repair attempt. If that also fails, you get the closest built-in simulation and the reason.
+5. Its sliders, chart, play/pause and speed controls work like the built-in ones. "Show the code the AI wrote" displays the source, and "Regenerate" asks again.
+
+On a built-in result that isn't quite right, **"Not quite it? Build exactly this with AI"** switches to this mode.
+
+Measured on my laptop with local `llama3.2:3b`: each generated simulation took 30–90 s to write and test (the first run also loads the model, about 20 s). Across 9 runs with 5 different prompts, 8 produced a working simulation, one of them only after its automatic repair. One failed both attempts (it called a drawing helper that didn't exist yet) and fell back cleanly. Unknown helper names are now harmless. Visual quality varies a lot: ants and the stadium crowd looked right, while "rain filling a lake" came out as abstract bars. The kit's built-in example is an ant colony, so ant prompts come out especially well. A bigger model (or Gemini) should do much better.
+
+## The simulation library (7 built-in)
 
 | Template | 3D scene | Model | Live rules |
 |---|---|---|---|
 | Epidemic spread | People walking a city plaza; infected glow amber, recovered turn teal | Agent-based SIR with a spatial hash | population, infection radius, infection chance, recovery time, initial infected, movement speed |
 | Flocking (boids) | Birds with flapping wings over hills and a lake | Reynolds boids in 3D (separation, alignment, cohesion) | agents, separation, alignment, cohesion, speed, vision radius |
 | Predator–prey | Sheep and wolves on a meadow; wolves flash after a catch | Agent-based Lotka–Volterra: logistic prey growth, predators with an energy budget | prey birth rate, predation rate, predator death rate, starting populations |
+| Traffic-light intersection | City crossroads with working traffic lights, zebra crossings and queues | IDM cars on 4 approaches with a 6-phase signal cycle | traffic volume, main-road share, green time per road, speed limit, a "Break down a car" button |
 | Traffic flow | Cars on a ring highway; brake lights glow in jams | Intelligent Driver Model on a ring road, plus a space-time trail of stopped cars | cars, road length, max speed, braking sensitivity, a "Trigger a slowdown" button |
 | Gravity (n-body) | Glowing stars with motion trails, coloured by speed | Softened Newtonian gravity, O(n²), on a spinning disk | particle count, gravity strength, damping, initial spread, initial spin |
 | Forest fire | Thousands of trees, flames, smoke drifting with the wind, charred stumps | Cellular automaton, 8 neighbours, wind-biased spread, optional regrowth | grid size, tree density, ignition points, spread probability, wind direction and strength, regrowth |
@@ -95,9 +110,11 @@ Runs with no network and no key. It checks that:
 - each sim's dynamics actually happen: the epidemic spreads, phantom jams form, both species survive, dense forests burn more than sparse ones, the flock aligns, the gravity cloud stays bound
 - the AI mapper, using a mock provider, routes 9 sample prompts to sensible templates with valid JSON
 - invalid AI output (prose, truncated JSON, unknown template, wrong types, a network error, a `"none"` answer) falls back cleanly
-- the HTTP API works
+- the HTTP API works, including streamed code from `/api/generate`
+- experimental mode: good generated code passes the sandbox check, broken code (prose, syntax errors, a missing function, a crash inside `step`) is rejected with a readable error, made-up drawing helpers don't crash, and the sandbox page blocks the network
+- the intersection really reacts: badly timed lights build much longer queues
 
-Latest run: **46/46 checks passed**. Excerpt:
+Latest run: **59/59 checks passed**. Excerpt:
 
 ```
 PASS  traffic: jams form with no slowdown event  (up to 8 cars stopped in a jam within 120 sim-s)
@@ -120,7 +137,8 @@ All checks passed
 
 ## Limitations
 
-- **Six templates, not "anything".** A prompt that doesn't resemble one of them gets the closest analogy or the picker. These are simplified teaching models, not calibrated forecasts.
+- **Seven built-in templates.** Anything else goes through experimental mode, which is hit-or-miss with a small local model (see above). The built-in ones are simplified teaching models, not calibrated forecasts.
+- **The sandbox is a strong barrier, not a guarantee.** The generated code can't reach the app or the network, but a page-freezing loop in the same browser process can still hang the tab until it is closed.
 - **Small local models are inconsistent.** In my testing, llama3.2:3b routed every demo prompt sensibly, but it sometimes kept default parameters, and it occasionally forced an off-topic prompt (for example "write my homework essay") into a template instead of answering `"none"`. A larger model should do better.
 - **The Gemini path is written but untested here**, because I had no key during development. The Ollama path and the mock provider are tested.
 - The keyword fallback only uses default parameters. It can't read "strong wind" into a slider value.
@@ -134,6 +152,8 @@ All checks passed
 src/sims/        six templates + manifest (pure JS, no browser APIs outside render)
 src/engine.js    fixed-step runner, live params, chart history, device caps
 src/ai/mapper.js system prompt, JSON extraction, schema validation, keyword fallback
+src/ai/customSim.js  experimental mode: code-writing prompt, drawing kit, checker, sandbox page
+src/custom.js    browser side: streaming, hidden-sandbox test, engine wrapper
 src/scenes/      one 3D scene per template + shared kit (lighting, low-poly model builder)
 src/App.jsx, Stage.jsx, Panel.jsx, styles.css   UI (Stage picks the 3D scene or the flat Map view)
 server/api.mjs   providers (Ollama, Gemini, mock) + /api handler, no dependencies

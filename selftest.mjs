@@ -2,7 +2,8 @@
 import { TEMPLATES, defaults } from './src/sims/manifest.js'
 import { Engine, schemaFor } from './src/engine.js'
 import { mapPrompt, validate } from './src/ai/mapper.js'
-import { mockProvider, createApi } from './server/api.mjs'
+import { mockProvider, createApi, MOCK_SIM } from './server/api.mjs'
+import { extractCode, compileSim, checkSim, makeArt, sandboxHtml } from './src/ai/customSim.js'
 import { createServer } from 'node:http'
 import { existsSync } from 'node:fs'
 
@@ -119,6 +120,18 @@ await check('boids: flock aligns over time', () => {
   assert(end > start + 0.2, `order ${start} -> ${end}`)
   return `alignment order ${start.toFixed(2)} -> ${end.toFixed(2)}`
 })
+await check('intersection: badly timed lights build longer queues', () => {
+  const t = sim('intersection')
+  const queue = (over) => {
+    const e = new Engine(t, { ...defaults(t), volume: 30, ...over }, { seed: 3 })
+    let total = 0
+    for (let i = 0; i < 60 * 240; i++) { t.step(e.state, e.params, 1 / 60); if (i % 60 === 0) total += t.stats(e.state).waiting }
+    return total / 240
+  }
+  const fair = queue({ greenMain: 16, greenSide: 12 }), bad = queue({ greenMain: 5, greenSide: 40 })
+  assert(bad > fair * 2, `avg queue fair=${fair.toFixed(1)} bad=${bad.toFixed(1)}`)
+  return `avg cars waiting: sensible timing ${fair.toFixed(1)}, bad timing ${bad.toFixed(1)}`
+})
 await check('gravity: cloud stays bound and finite', () => {
   const t = sim('gravity'), e = run(t, defaults(t), 60 * 15)
   const s = t.stats(e.state)
@@ -202,12 +215,56 @@ await check('/api/status and /api/map over HTTP (mock provider)', async () => {
     return `status: ${st.message}`
   } finally { srv.close() }
 })
+await check('/api/generate streams AI-written code (mock provider)', async () => {
+  const api = createApi({ AI_PROVIDER: 'mock' })
+  const srv = createServer((q, s) => api(q, s))
+  await new Promise((ok) => srv.listen(0, ok))
+  try {
+    const text = await (await fetch(`http://127.0.0.1:${srv.address().port}/api/generate`, { method: 'POST', body: JSON.stringify({ prompt: 'cars at a level crossing' }) })).text()
+    assert(/const sim =/.test(text), text.slice(0, 80))
+  } finally { srv.close() }
+})
 await check('/api with no provider says "AI not configured"', async () => {
   const api = createApi({})
   let body = ''
   const res = { setHeader() {}, end: (b) => { body = b } }
   await api({ method: 'GET', url: '/api/status' }, res)
   assert(JSON.parse(body).message.startsWith('AI not configured'), body)
+})
+
+console.log('\n== Experimental mode: AI-written simulations ==')
+const fakeCtx = new Proxy({}, { get: () => () => {}, set: () => true })
+await check('good generated code passes the sandbox self-check', () => {
+  const simObj = compileSim(extractCode(MOCK_SIM), makeArt())
+  const r = checkSim(simObj, fakeCtx, 800, 500)
+  assert(Object.keys(simObj.params).length === 2 && 'Cars waiting' in r.stats, JSON.stringify(r.stats))
+  return `"${simObj.title}", stats ${JSON.stringify(r.stats)}`
+})
+for (const [what, code, expect] of [
+  ['prose with no code', 'Sorry, I cannot do that.', /did not define/],
+  ['syntax error', 'const sim = { init( {', /does not run/],
+  ['missing step()', 'const sim = { init(){ return {} }, draw(){} }', /sim.step must be a function/],
+  ['crash inside step()', 'const sim = { init(){ return {} }, step(s){ s.x.y = 1 }, draw(){} }', /step\(\) failed/],
+]) {
+  await check(`bad generated code is rejected: ${what}`, () => {
+    try { checkSim(compileSim(extractCode(code), makeArt()), fakeCtx, 800, 500) } catch (e) { assert(expect.test(e.message), e.message); return e.message }
+    throw new Error('was not rejected')
+  })
+}
+await check('drawing kit: made-up helper names do not crash', () => {
+  const art = makeArt()
+  art.car(fakeCtx, 1, 2, 0, '#fff'); art.line(fakeCtx, 0, 0, 1, 1); art.rect(fakeCtx, 0, 0, 1, 1); art.notARealHelper(fakeCtx)
+})
+await check('sandbox page blocks network and parses', () => {
+  const html = sandboxHtml()
+  assert(/default-src 'none'/.test(html), 'CSP missing')
+  new Function(html.split('<script>')[1].split('</script>')[0]) // eslint-disable-line no-new-func
+})
+await check('exact match: keyword hit counts, unrelated template does not', async () => {
+  const ix = await mapPrompt('car stuck at a four-way intersection', mockProvider({ reply: '{"fit":"direct","exact":false,"template_id":"intersection","params":{},"title":"t","description":"d"}' }))
+  const ants = await mapPrompt('ants carrying food home', mockProvider({ reply: '{"fit":"analogy","exact":false,"template_id":"epidemic","params":{},"title":"t","description":"d"}' }))
+  assert(ix.exact === true && ants.exact === false, `ix=${ix.exact} ants=${ants.exact}`)
+  return 'intersection prompt -> built-in; ants -> AI writes a new one'
 })
 
 console.log(failed ? `\n${failed} check(s) FAILED` : '\nAll checks passed')
