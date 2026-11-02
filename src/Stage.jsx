@@ -1,7 +1,13 @@
-import { lazy, Suspense, useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 
-// Three.js is ~700 kB, so the 3D view only loads when a 3D template runs.
+// Each template can have a 3D scene at src/scenes/<id>.jsx, found automatically
+// and lazy-loaded (three.js only downloads when a scene is shown).
+const sceneFiles = import.meta.glob(['./scenes/*.jsx', '!./scenes/kit.jsx'])
+const SCENES = Object.fromEntries(Object.entries(sceneFiles).map(([path, load]) => [path.match(/scenes\/(.+)\.jsx$/)[1], lazy(load)]))
+// Fallback for a 3D template without its own scene.
 const View3D = lazy(() => import('./View3D.jsx'))
+/** World shape the 3D scenes are laid out for (2D sims). */
+const WORLD_3D = { w: 1000, h: 640 }
 
 // Canvas colours per theme (CSS can't reach inside a canvas).
 export const PALETTES = {
@@ -9,12 +15,17 @@ export const PALETTES = {
   light: { bg: '#f3f5f9', fg: '#141a26', muted: '#6a7585', track: '#d5dbe5', accent: '#e8792b', accent2: '#ffb066', cool1: '#2f74d0', cool2: '#14998c', cool3: '#6a5fd8', tree: '#3f9a6e', ash: '#c3c9d2' },
 }
 
-/** Last measured stage aspect, so new engines start with the right world shape. */
-export const stageWorld = { w: 1000, h: 625 }
-
 export default function Stage({ engine, template, theme, labels, runKey }) {
   const hudRef = useRef(null)
   const pal = PALETTES[theme]
+  const [mode, setMode] = useState('3d')
+  const Scene = SCENES[template.id]
+  const hasMap = typeof template.render === 'function'
+  const show3D = Scene && (mode === '3d' || !hasMap)
+
+  useEffect(() => {
+    if (show3D && 'w' in engine.state) engine.setWorld(WORLD_3D.w, WORLD_3D.h)
+  }, [show3D, engine])
 
   // HUD numbers: written straight into the DOM a few times a second.
   useEffect(() => {
@@ -35,9 +46,18 @@ export default function Stage({ engine, template, theme, labels, runKey }) {
 
   return (
     <div className="stage" key={runKey}>
-      {template.view === '3d'
-        ? <Suspense fallback={<div className="loading-3d">Loading 3D engine…</div>}><View3D engine={engine} template={template} pal={pal} theme={theme} /></Suspense>
-        : <View2D engine={engine} template={template} pal={pal} />}
+      <Suspense fallback={<div className="loading-3d"><span className="spinner" />Building the 3D scene…</div>}>
+        {show3D ? <Scene engine={engine} template={template} theme={theme} pal={pal} />
+          : hasMap ? <View2D engine={engine} template={template} pal={pal} />
+          : <View3D engine={engine} template={template} pal={pal} theme={theme} />}
+      </Suspense>
+      {Scene && hasMap && (
+        <div className="view-toggle seg glass" role="group" aria-label="View">
+          <button className={show3D ? 'on' : ''} onClick={() => setMode('3d')}>3D</button>
+          <button className={!show3D ? 'on' : ''} onClick={() => setMode('map')}>Map</button>
+        </div>
+      )}
+      {show3D && <div className="orbit-hint">drag to orbit · scroll to zoom</div>}
       <div className="hud glass" ref={hudRef}>
         {Object.keys(template.labels).map((k) => {
           const s = template.series.find((x) => x.key === k)
@@ -69,10 +89,7 @@ function View2D({ engine, template, pal }) {
       w = r.width; h = r.height
       canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      if (w > 0 && h > 0) {
-        stageWorld.h = Math.round((1000 * h) / w)
-        engine.setWorld(1000, stageWorld.h)
-      }
+      if (w > 0 && h > 0) engine.setWorld(1000, Math.round((1000 * h) / w))
     }
     const ro = new ResizeObserver(resize)
     ro.observe(canvas)

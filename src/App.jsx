@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { TEMPLATES, byId } from './sims/manifest.js'
 import { Engine, deviceScale, schemaFor, snap } from './engine.js'
 import { mapPrompt } from './ai/mapper.js'
-import Stage, { stageWorld } from './Stage.jsx'
+import Stage from './Stage.jsx'
 import Panel from './Panel.jsx'
 
 const EXAMPLES = [
@@ -27,7 +27,7 @@ function makeRun(config, extra) {
   const t = byId(config.template_id)
   const schema = schemaFor(t, SCALE)
   const params = Object.fromEntries(Object.entries(schema).map(([k, p]) => [k, snap(p, config.params?.[k] ?? p.default)]))
-  const engine = new Engine(t, params, { world: { ...stageWorld }, schema })
+  const engine = new Engine(t, params, { world: { w: 1000, h: 640 }, schema })
   return {
     t, schema, params, engine,
     meta: {

@@ -149,7 +149,7 @@ button { font: inherit; color: inherit; }
 .hud-row b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 600; }
 .hud-time { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--ink-3); }
 .paused-tag {
-  position: absolute; right: 14px; top: 14px; z-index: 2; font-size: 12px; padding: 6px 10px; border-radius: 999px;
+  position: absolute; left: 50%; transform: translateX(-50%); top: 14px; z-index: 2; font-size: 12px; padding: 6px 10px; border-radius: 999px;
   background: var(--glass-hi); border: 1px solid var(--line); color: var(--ink-2);
 }
 .composing {
@@ -283,3 +283,7 @@ input[type='range']:focus { outline: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 .loading-3d { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: 13px; animation: fade 0.4s ease; }
+.view-toggle { position: absolute; right: 14px; top: 14px; z-index: 2; margin: 0; }
+.orbit-hint { position: absolute; right: 16px; bottom: 12px; z-index: 2; font-size: 11.5px; color: var(--ink-3); pointer-events: none; animation: hint-out 1s 6s forwards; }
+@keyframes hint-out { to { opacity: 0; } }
+.loading-3d .spinner { display: inline-block; margin-right: 10px; vertical-align: -3px; border-color: var(--line-2); border-top-color: var(--accent); }
