@@ -10,7 +10,7 @@ Type a prompt in plain English and get a **live, interactive simulation**. Drag 
 
 ## How it works: the AI configures, it never invents physics
 
-Physics written by an LLM on the fly would be unreliable, so Livewire doesn't ask for it. The AI's only job is to **map** a prompt onto one of six hand-built simulation templates and **configure** it. It returns JSON, and that JSON is validated against the chosen template's parameter schema before anything runs.
+Physics written by an LLM on the fly would be unreliable, so Livewire doesn't ask for it. Normally the AI's job is to **map** a prompt onto one of seven hand-built simulation templates and **configure** it. When none of them fits, experimental mode (below) lets it write a new one. It returns JSON, and that JSON is validated against the chosen template's parameter schema before anything runs.
 
 ```mermaid
 flowchart LR
@@ -58,7 +58,7 @@ Measured on my laptop with local `llama3.2:3b`: each generated simulation took 3
 
 Each sim has its own live chart (S/I/R counts, prey and predators, average speed and jammed cars, and so on). Parameters marked **restarts** (for example grid size or road length) re-initialise the sim. Everything else changes the running simulation instantly, including agent counts, which grow or shrink in place.
 
-All six are low-poly 3D scenes built in code (no model downloads), rendered with React Three Fiber. You can orbit and zoom them. Dark mode shows them at night (lit windows, headlights, glowing flames); light mode shows them in daylight. The 2D sims also have a flat **Map** view (toggle at the top right of the stage), which is handy for reading patterns such as the traffic space-time trail.
+All seven are low-poly 3D scenes built in code (no model downloads), rendered with React Three Fiber. You can orbit and zoom them. Dark mode shows them at night (lit windows, headlights, glowing flames); light mode shows them in daylight. The 2D sims also have a flat **Map** view (toggle at the top right of the stage), which is handy for reading patterns such as the traffic space-time trail.
 
 | Wildfire pushed by wind | Sheep and wolves | Starling flock |
 |---|---|---|
@@ -208,7 +208,7 @@ All checks passed
 ## Project layout
 
 ```
-src/sims/        six templates + manifest (pure JS, no browser APIs outside render)
+src/sims/        seven templates + manifest (pure JS, no browser APIs outside render)
 src/engine.js    fixed-step runner, live params, chart history, device caps
 src/ai/mapper.js system prompt, JSON extraction, schema validation, keyword fallback
 src/ai/customSim.js  experimental mode: code-writing prompt, drawing kit, checker, sandbox page
