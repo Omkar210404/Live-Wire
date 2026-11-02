@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { SANDBOX_HTML } from './custom.js'
 
 // Each template can have a 3D scene at src/scenes/<id>.jsx, found automatically
 // and lazy-loaded (three.js only downloads when a scene is shown).
@@ -15,13 +16,14 @@ export const PALETTES = {
   light: { bg: '#f3f5f9', fg: '#141a26', muted: '#6a7585', track: '#d5dbe5', accent: '#e8792b', accent2: '#ffb066', cool1: '#2f74d0', cool2: '#14998c', cool3: '#6a5fd8', tree: '#3f9a6e', ash: '#c3c9d2' },
 }
 
-export default function Stage({ engine, template, theme, labels, runKey }) {
+export default function Stage({ engine, template, theme, labels, runKey, onSandboxError }) {
   const hudRef = useRef(null)
   const pal = PALETTES[theme]
   const [mode, setMode] = useState('3d')
   const Scene = SCENES[template.id]
   const hasMap = typeof template.render === 'function'
   const show3D = Scene && (mode === '3d' || !hasMap)
+  const custom = template.view === 'custom'
 
   useEffect(() => {
     if (show3D && 'w' in engine.state) engine.setWorld(WORLD_3D.w, WORLD_3D.h)
@@ -47,17 +49,19 @@ export default function Stage({ engine, template, theme, labels, runKey }) {
   return (
     <div className="stage" key={runKey}>
       <Suspense fallback={<div className="loading-3d"><span className="spinner" />Building the 3D scene…</div>}>
-        {show3D ? <Scene engine={engine} template={template} theme={theme} pal={pal} />
+        {custom ? <SandboxView engine={engine} onError={onSandboxError} />
+          : show3D ? <Scene engine={engine} template={template} theme={theme} pal={pal} />
           : hasMap ? <View2D engine={engine} template={template} pal={pal} />
           : <View3D engine={engine} template={template} pal={pal} theme={theme} />}
       </Suspense>
+      {custom && <div className="exp-tag">AI-generated · experimental</div>}
       {Scene && hasMap && (
         <div className="view-toggle seg glass" role="group" aria-label="View">
           <button className={show3D ? 'on' : ''} onClick={() => setMode('3d')}>3D</button>
           <button className={!show3D ? 'on' : ''} onClick={() => setMode('map')}>Map</button>
         </div>
       )}
-      {show3D && <div className="orbit-hint">drag to orbit · scroll to zoom</div>}
+      {show3D && !custom && <div className="orbit-hint">drag to orbit · scroll to zoom</div>}
       <div className="hud glass" ref={hudRef}>
         {Object.keys(template.labels).map((k) => {
           const s = template.series.find((x) => x.key === k)
@@ -73,6 +77,30 @@ export default function Stage({ engine, template, theme, labels, runKey }) {
       </div>
     </div>
   )
+}
+
+/** AI-written simulation running in a sandboxed iframe (no network, opaque origin). */
+function SandboxView({ engine, onError }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const f = ref.current
+    engine.onError = onError
+    const onMsg = (e) => {
+      if (e.source !== f.contentWindow || !e.data?.lw) return
+      if (e.data.type === 'boot') engine.attach(f.contentWindow)
+      else engine.receive(e.data)
+    }
+    window.addEventListener('message', onMsg)
+    // watchdog: a running sim reports stats 4x a second
+    const dog = setInterval(() => {
+      if (!document.hidden && engine.lastBeat && performance.now() - engine.lastBeat > 5000) {
+        engine.lastBeat = 0
+        onError?.('the simulation stopped responding')
+      }
+    }, 1000)
+    return () => { window.removeEventListener('message', onMsg); clearInterval(dog) }
+  }, [engine, onError])
+  return <iframe ref={ref} className="sim-canvas sandbox" title="AI-generated simulation" sandbox="allow-scripts" srcDoc={SANDBOX_HTML()} />
 }
 
 const fmt = (v) => (v == null ? '–' : Number.isInteger(v) ? v.toLocaleString() : v.toFixed(v < 10 ? 2 : 1))
