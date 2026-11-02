@@ -2,6 +2,8 @@
 
 **In one line:** Livewire turns a plain-English sentence into a live simulation you can play with. A local AI either sets up one of seven built-in 3D simulations or writes a brand-new one when none fits.
 
+**Live demo:** https://omkar210404.github.io/Live-Wire/ (the online demo has no AI server, so prompts are matched to the built-in simulations by keywords. For AI prompts and AI-written simulations, run it locally with Ollama: see [Run it](#run-it-step-by-step).)
+
 Type a prompt in plain English and get a **live, interactive simulation**. Drag sliders to change the rules and watch the system react in real time.
 
 ![Zombie outbreak prompt mapped to the epidemic template by a local LLM](docs/zombies.jpg)
@@ -92,8 +94,8 @@ node -v
 
 ### 2. Get the code and install packages
 ```bash
-git clone https://github.com/Omkar210404/livewire.git
-cd livewire
+git clone https://github.com/Omkar210404/Live-Wire.git
+cd Live-Wire
 npm install
 ```
 
