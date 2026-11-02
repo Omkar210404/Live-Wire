@@ -10,7 +10,7 @@ export default {
   keywords: ['fire', 'forest', 'wildfire', 'bushfire', 'burn', 'burning', 'flames', 'blaze', 'trees', 'wind', 'cellular automaton', 'automata', 'grid', 'percolation', 'drought', 'wildland', 'smoke'],
   view: '2d',
   sharedScale: true,
-  fixedDt: 1 / 15,
+  fixedDt: 1 / 9,
   params: {
     gridSize: { label: 'Grid size', min: 40, max: 300, step: 10, default: 160, restart: true, heavy: true },
     density: { label: 'Tree density', min: 0.1, max: 1, step: 0.01, default: 0.62, restart: true },
