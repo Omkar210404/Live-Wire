@@ -13,4 +13,5 @@ const livewireApi = () => ({
 })
 
 // The 3D chunk (three.js) is big by nature and loads lazily.
-export default defineConfig({ plugins: [react(), livewireApi()], build: { chunkSizeWarningLimit: 900 } })
+// LIVEWIRE_BASE sets the sub-path for GitHub Pages (e.g. /livewire/).
+export default defineConfig({ base: process.env.LIVEWIRE_BASE || '/', plugins: [react(), livewireApi()], build: { chunkSizeWarningLimit: 900 } })

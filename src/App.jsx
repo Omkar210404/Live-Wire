@@ -18,6 +18,9 @@ const EXAMPLES = [
   'how a spinning gas cloud becomes a galaxy',
 ]
 const SCALE = deviceScale()
+// Static build for GitHub Pages: there is no AI server, so never call /api.
+const DEMO = import.meta.env.VITE_DEMO === '1'
+const DEMO_MSG = 'Online demo: there is no AI server here, so prompts are matched to the 7 built-in simulations by keywords. Run Livewire locally with Ollama for AI prompts and AI-written simulations.'
 
 const store = {
   get: (k) => { try { return localStorage.getItem(k) } catch { return null } },
@@ -61,6 +64,7 @@ export default function App() {
   }, [theme])
 
   useEffect(() => {
+    if (DEMO) { setAi({ state: 'off', message: DEMO_MSG, demo: true }); return }
     fetch('/api/status')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((s) => setAi({ state: s.ready ? 'ready' : s.provider === 'none' ? 'off' : 'down', message: s.message, provider: s.provider }))
@@ -125,6 +129,7 @@ export default function App() {
     setLoading(true)
     let result
     try {
+      if (DEMO) throw new Error('demo')
       const r = await fetch('/api/map', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: q }) })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       result = await r.json()
@@ -151,7 +156,7 @@ export default function App() {
     }
     start(makeRun(result.config, { source: result.source, provider: result.provider, reason: result.reason, warnings: result.warnings, prompt: q }))
     if (result.source === 'fallback') notify(`AI unavailable or invalid, used the nearest template instead. (${result.reason})`, 'warn')
-    if (result.source === 'keyword') notify('AI not configured: matched your prompt to a template by keywords.', 'info')
+    if (result.source === 'keyword') notify(DEMO ? 'Demo mode: matched your prompt to a built-in simulation by keywords. Run locally with Ollama for the AI.' : 'AI not configured: matched your prompt to a template by keywords.', 'info')
   }
 
   const onSandboxError = useCallback((msg) => notify(`The AI-written simulation crashed: ${msg}. Press "Regenerate" to let the AI try again.`, 'warn'), [notify])
@@ -183,7 +188,7 @@ export default function App() {
 
   const aiLabel = useMemo(() => ({
     ready: ai.provider === 'gemini' ? 'Gemini ready' : 'Ollama ready',
-    off: 'AI not configured', down: 'AI offline', checking: 'Checking…',
+    off: ai.demo ? 'Demo · AI runs locally' : 'AI not configured', down: 'AI offline', checking: 'Checking…',
   })[ai.state], [ai])
 
   return (
