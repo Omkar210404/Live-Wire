@@ -4,6 +4,7 @@ import { Engine, schemaFor } from './src/engine.js'
 import { mapPrompt, validate } from './src/ai/mapper.js'
 import { mockProvider, createApi } from './server/api.mjs'
 import { createServer } from 'node:http'
+import { existsSync } from 'node:fs'
 
 let failed = 0
 async function check(name, fn) {
@@ -69,6 +70,10 @@ for (const t of TEMPLATES) {
   })
 }
 
+await check('every template has a 3D scene file', () => {
+  const missing = TEMPLATES.filter((t) => !existsSync(new URL(`./src/scenes/${t.id}.jsx`, import.meta.url))).map((t) => t.id)
+  assert(!missing.length, `no scene for: ${missing.join(', ')}`)
+})
 await check('device caps shrink heavy params', () => {
   for (const t of TEMPLATES) for (const [k, p] of Object.entries(schemaFor(t, 0.35)))
     if (t.params[k].heavy) assert(p.max < t.params[k].max && p.default <= p.max && p.max >= p.min, `${t.id}.${k}`)

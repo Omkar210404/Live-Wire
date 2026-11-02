@@ -30,24 +30,28 @@ flowchart LR
 
 ## The simulation library
 
-| Template | View | Model | Live rules |
+| Template | 3D scene | Model | Live rules |
 |---|---|---|---|
-| Epidemic spread | Canvas 2D | Agent-based SIR with a spatial hash | population, infection radius, infection chance, recovery time, initial infected, movement speed |
-| Flocking (boids) | Three.js | Reynolds boids in 3D (separation, alignment, cohesion) | agents, separation, alignment, cohesion, speed, vision radius |
-| Predator–prey | Canvas 2D | Agent-based Lotka–Volterra: logistic prey growth, predators with an energy budget | prey birth rate, predation rate, predator death rate, starting populations |
-| Traffic flow | Canvas 2D | Intelligent Driver Model on a ring road, plus a space-time trail of stopped cars | cars, road length, max speed, braking sensitivity, a "Trigger a slowdown" button |
-| Gravity (n-body) | Three.js | Softened Newtonian gravity, O(n²), on a spinning disk | particle count, gravity strength, damping, initial spread, initial spin |
-| Forest fire | Canvas 2D | Cellular automaton, 8 neighbours, wind-biased spread, optional regrowth | grid size, tree density, ignition points, spread probability, wind direction and strength, regrowth |
+| Epidemic spread | People walking a city plaza; infected glow amber, recovered turn teal | Agent-based SIR with a spatial hash | population, infection radius, infection chance, recovery time, initial infected, movement speed |
+| Flocking (boids) | Birds with flapping wings over hills and a lake | Reynolds boids in 3D (separation, alignment, cohesion) | agents, separation, alignment, cohesion, speed, vision radius |
+| Predator–prey | Sheep and wolves on a meadow; wolves flash after a catch | Agent-based Lotka–Volterra: logistic prey growth, predators with an energy budget | prey birth rate, predation rate, predator death rate, starting populations |
+| Traffic flow | Cars on a ring highway; brake lights glow in jams | Intelligent Driver Model on a ring road, plus a space-time trail of stopped cars | cars, road length, max speed, braking sensitivity, a "Trigger a slowdown" button |
+| Gravity (n-body) | Glowing stars with motion trails, coloured by speed | Softened Newtonian gravity, O(n²), on a spinning disk | particle count, gravity strength, damping, initial spread, initial spin |
+| Forest fire | Thousands of trees, flames, smoke drifting with the wind, charred stumps | Cellular automaton, 8 neighbours, wind-biased spread, optional regrowth | grid size, tree density, ignition points, spread probability, wind direction and strength, regrowth |
 
 Each sim has its own live chart (S/I/R counts, prey and predators, average speed and jammed cars, and so on). Parameters marked **restarts** (for example grid size or road length) re-initialise the sim. Everything else changes the running simulation instantly, including agent counts, which grow or shrink in place.
 
-| Traffic: jams form with no accident | Boids: a flock emerges from three local rules | Forest fire pushed by wind |
+All six are low-poly 3D scenes built in code (no model downloads), rendered with React Three Fiber. You can orbit and zoom them. Dark mode shows them at night (lit windows, headlights, glowing flames); light mode shows them in daylight. The 2D sims also have a flat **Map** view (toggle at the top right of the stage), which is handy for reading patterns such as the traffic space-time trail.
+
+| Wildfire pushed by wind | Sheep and wolves | Starling flock |
 |---|---|---|
-| ![traffic](docs/traffic.jpg) | ![boids](docs/flocking.jpg) | ![fire](docs/forest.jpg) |
+| ![fire](docs/forest.jpg) | ![meadow](docs/meadow.jpg) | ![birds](docs/birds.jpg) |
+| **Phantom traffic jams** | **Galaxy forming** | |
+| ![traffic](docs/traffic.jpg) | ![galaxy](docs/galaxy.jpg) | |
 
 ### Adding a 7th template
 
-Drop one file in `src/sims/` that follows the contract documented at the top of [`src/sims/manifest.js`](src/sims/manifest.js): `params` schema, `init`, `step`, `stats`, and `render` (2D) or `render3d` (3D). Then add one import line to the manifest. The AI prompt, keyword fallback, sliders, chart, HUD and self-test all pick it up from there.
+Drop one file in `src/sims/` that follows the contract documented at the top of [`src/sims/manifest.js`](src/sims/manifest.js): `params` schema, `init`, `step`, `stats`, and `render` (2D) or `render3d` (3D). Then add one import line to the manifest. The AI prompt, keyword fallback, sliders, chart, HUD and self-test all pick it up from there, and it runs right away with that flat view. For a custom 3D scene, add `src/scenes/<id>.jsx`, which is picked up automatically.
 
 ## Run it
 
@@ -86,14 +90,14 @@ npm run selftest
 
 Runs with no network and no key. It checks that:
 
-- every template inits, runs 300 ticks, renders, and stays finite with each parameter at its min and max
+- every template has a 3D scene, inits, runs 300 ticks, renders, and stays finite with each parameter at its min and max
 - sliders clamp to the schema, and `restart` params really restart
 - each sim's dynamics actually happen: the epidemic spreads, phantom jams form, both species survive, dense forests burn more than sparse ones, the flock aligns, the gravity cloud stays bound
 - the AI mapper, using a mock provider, routes 9 sample prompts to sensible templates with valid JSON
 - invalid AI output (prose, truncated JSON, unknown template, wrong types, a network error, a `"none"` answer) falls back cleanly
 - the HTTP API works
 
-Latest run: **45/45 checks passed**. Excerpt:
+Latest run: **46/46 checks passed**. Excerpt:
 
 ```
 PASS  traffic: jams form with no slowdown event  (up to 8 cars stopped in a jam within 120 sim-s)
@@ -107,11 +111,12 @@ All checks passed
 
 ## Performance
 
-- Simulation frames never re-render React. Canvas 2D sims draw from a `requestAnimationFrame` loop, 3D sims update one `InstancedMesh` inside `useFrame`, and the HUD and chart write to the DOM or canvas directly a few times a second.
+- Simulation frames never re-render React. Each 3D scene updates instanced meshes (one draw call per kind of object: people, cars, trees, flames) inside `useFrame`. The forest only touches trees whose state changed. The HUD and chart write to the DOM or canvas directly a few times a second.
 - Fixed-timestep engine: a 0.25×–4× speed control, and frame time is clamped so a slow frame drops time instead of spiralling.
 - Paused while the tab is hidden.
 - Agent, particle and cell counts are capped per device: 35–60% of the desktop maximum on phones and low-core machines.
-- Three.js (about 840 kB) is lazy-loaded only when a 3D template runs. The main bundle is about 180 kB (62 kB gzipped).
+- Three.js (about 840 kB) and each scene (3–6 kB) are lazy-loaded. The main bundle is about 185 kB (63 kB gzipped).
+- In headless Edge on my laptop, every scene ran at 70–145 fps with default settings.
 
 ## Limitations
 
@@ -119,6 +124,7 @@ All checks passed
 - **Small local models are inconsistent.** In my testing, llama3.2:3b routed every demo prompt sensibly, but it sometimes kept default parameters, and it occasionally forced an off-topic prompt (for example "write my homework essay") into a template instead of answering `"none"`. A larger model should do better.
 - **The Gemini path is written but untested here**, because I had no key during development. The Ollama path and the mock provider are tested.
 - The keyword fallback only uses default parameters. It can't read "strong wind" into a slider value.
+- The 2D worlds wrap around: people and animals that walk off one edge reappear on the other, so in the city they can seem to step out of a building. Agents also pass through each other; there is no collision.
 - Resizing the window mid-run lets 2D agents wrap into the new bounds instead of rescaling.
 - n-body gravity is O(n²) and capped at 800 particles.
 
@@ -128,7 +134,8 @@ All checks passed
 src/sims/        six templates + manifest (pure JS, no browser APIs outside render)
 src/engine.js    fixed-step runner, live params, chart history, device caps
 src/ai/mapper.js system prompt, JSON extraction, schema validation, keyword fallback
-src/App.jsx, Stage.jsx, View3D.jsx, Panel.jsx, styles.css   UI
+src/scenes/      one 3D scene per template + shared kit (lighting, low-poly model builder)
+src/App.jsx, Stage.jsx, Panel.jsx, styles.css   UI (Stage picks the 3D scene or the flat Map view)
 server/api.mjs   providers (Ollama, Gemini, mock) + /api handler, no dependencies
 server/index.mjs production server
 selftest.mjs     the self-test
