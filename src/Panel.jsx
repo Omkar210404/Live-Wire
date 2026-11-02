@@ -6,6 +6,7 @@ const SOURCE = {
   fallback: () => ({ text: 'Keyword fallback', cls: 'warn' }),
   keyword: () => ({ text: 'Keyword match', cls: 'muted' }),
   manual: () => ({ text: 'Manual', cls: 'muted' }),
+  custom: () => ({ text: 'AI-generated · experimental', cls: 'warn' }),
 }
 const SPEEDS = [0.25, 0.5, 1, 2, 4]
 
@@ -24,6 +25,21 @@ export default function Panel(props) {
           <h1>{meta.title}</h1>
           <p className="desc">{meta.description}</p>
           {meta.reason && meta.source === 'fallback' && <p className="note warn">AI fell back: {meta.reason}</p>}
+          {meta.closest && <p className="note warn">Closest built-in match. It doesn't show exactly what you asked for.</p>}
+          {meta.source === 'custom' && (
+            <>
+              <p className="note warn">The AI wrote this simulation just now, for your prompt. It runs in a sandbox and may be inaccurate or look rough.</p>
+              <details className="note">
+                <summary>Show the code the AI wrote</summary>
+                <pre className="code-box">{meta.code}</pre>
+              </details>
+            </>
+          )}
+          {props.canBuild && (
+            <button className="btn build-btn" onClick={props.onBuild}>
+              {meta.source === 'custom' ? 'Regenerate with AI' : 'Not quite it? Build exactly this with AI'}
+            </button>
+          )}
           {meta.warnings?.length > 0 && (
             <details className="note">
               <summary>{meta.warnings.length} AI value{meta.warnings.length > 1 ? 's' : ''} corrected</summary>
@@ -52,7 +68,9 @@ export default function Panel(props) {
           </div>
         )}
 
-        <Chart engine={engine} template={template} labels={labels} pal={PALETTES[theme]} />
+        {template.series.length
+          ? <Chart engine={engine} template={template} labels={labels} pal={PALETTES[theme]} />
+          : <p className="note">This AI-written simulation doesn't report any numbers, so there's nothing to chart.</p>}
 
         <section className="sliders">
           <h2>Rules <small>drag to change the live simulation</small></h2>

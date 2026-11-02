@@ -287,3 +287,9 @@ input[type='range']:focus { outline: none; }
 .orbit-hint { position: absolute; right: 16px; bottom: 12px; z-index: 2; font-size: 11.5px; color: var(--ink-3); pointer-events: none; animation: hint-out 1s 6s forwards; }
 @keyframes hint-out { to { opacity: 0; } }
 .loading-3d .spinner { display: inline-block; margin-right: 10px; vertical-align: -3px; border-color: var(--line-2); border-top-color: var(--accent); }
+.sandbox { border: 0; background: #0b1020; }
+.exp-tag { position: absolute; right: 14px; top: 14px; z-index: 2; font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em; padding: 6px 10px; border-radius: 999px; color: var(--accent); background: var(--glass-hi); border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.code-live { margin: 14px auto 0; width: min(560px, 80vw); max-height: 210px; overflow: hidden; text-align: left; font: 11.5px/1.5 ui-monospace, Consolas, monospace; color: var(--ink-2); background: color-mix(in srgb, var(--bg-0) 70%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; white-space: pre; mask-image: linear-gradient(180deg, transparent, #000 30%); }
+.build-btn { width: 100%; margin-top: 12px; border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); background: transparent; font-size: 13px; }
+.code-box { max-height: 260px; overflow: auto; font: 11px/1.45 ui-monospace, Consolas, monospace; background: color-mix(in srgb, var(--bg-0) 60%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 8px; white-space: pre; color: var(--ink-2); }
+.stage-idle { position: absolute; inset: 0; background: radial-gradient(600px 400px at 50% 45%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%), var(--bg-0); }

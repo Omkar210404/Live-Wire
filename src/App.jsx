@@ -4,16 +4,18 @@ import { Engine, deviceScale, schemaFor, snap } from './engine.js'
 import { mapPrompt } from './ai/mapper.js'
 import Stage from './Stage.jsx'
 import Panel from './Panel.jsx'
+import { SandboxEngine, customTemplate, generateCode, testInSandbox } from './custom.js'
+import { extractCode } from './ai/customSim.js'
 
 const EXAMPLES = [
-  'simulate how a disease spreads through a city',
+  'a car stuck in a traffic jam at a four-way intersection',
+  'ants carrying food back to their nest',
   'a zombie outbreak in a crowded mall',
   'show me how traffic jams form',
   'a murmuration of starlings at dusk',
   'wolves and sheep in a meadow',
   'a wildfire spreading through a dry forest with strong wind',
   'how a spinning gas cloud becomes a galaxy',
-  'a school of fish avoiding each other',
 ]
 const SCALE = deviceScale()
 
@@ -49,6 +51,7 @@ export default function App() {
   const [theme, setTheme] = useState(() => store.get('lw-theme') || 'dark')
   const [panelOpen, setPanelOpen] = useState(false)
   const [flashLibrary, setFlashLibrary] = useState(false)
+  const [building, setBuilding] = useState(null) // { step, code } while the AI writes a simulation
   const toastTimer = useRef()
   const inputRef = useRef()
 
@@ -78,9 +81,46 @@ export default function App() {
     setPlaying(true)
   }, [speed])
 
+  const startCustom = (code, info, q) => {
+    const engine = new SandboxEngine(code, info)
+    const t = customTemplate(info)
+    start({ t, schema: info.params, params: engine.params, engine, meta: { key: Math.random(), title: info.title, description: info.description, labels: t.labels, source: 'custom', code, prompt: q } })
+  }
+
+  /** Experimental mode: AI writes a new simulation, we test it, repair once, or fall back. */
+  const build = async (q, fallback) => {
+    let previous = null, lastError = ''
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const step = attempt === 1 ? 'The AI is writing a new simulation' : 'It had a bug: the AI is fixing its code'
+      setBuilding({ step, code: '' })
+      let text = ''
+      try {
+        text = await generateCode(q, previous, (t) => setBuilding({ step, code: t }))
+      } catch (e) {
+        lastError = e.message
+        if (/not available|server error/.test(lastError)) break
+        previous = { code: text || '(no code)', error: lastError }
+        continue
+      }
+      let code
+      try { code = extractCode(text) } catch (e) { lastError = e.message; previous = { code: text, error: lastError }; continue }
+      setBuilding({ step: 'Testing it safely in a sandbox', code: text })
+      const test = await testInSandbox(code)
+      if (test.ok) { setBuilding(null); startCustom(code, test.info, q); return true }
+      lastError = test.error
+      previous = { code, error: test.error }
+    }
+    setBuilding(null)
+    if (fallback?.config) {
+      start(makeRun(fallback.config, { source: 'ai', provider: fallback.provider, warnings: fallback.warnings, prompt: q, closest: true }))
+      notify(`The AI couldn't build a working custom simulation (${lastError}). Showing the closest built-in one instead.`, 'warn')
+    } else notify(`The AI couldn't build a working simulation (${lastError}). Try rewording, or pick one from the library.`, 'warn')
+    return false
+  }
+
   const submit = async (text = prompt) => {
     const q = text.trim()
-    if (!q || loading) return
+    if (!q || loading || building) return
     setPrompt(q)
     setLoading(true)
     let result
@@ -92,6 +132,16 @@ export default function App() {
       result = { ...(await mapPrompt(q, null)), provider: 'none' } // backend unreachable: map in the browser
     }
     setLoading(false)
+    const exactMatch = result.source === 'ai' && result.config && result.exact !== false
+    if (exactMatch) {
+      start(makeRun(result.config, { source: 'ai', provider: result.provider, warnings: result.warnings, prompt: q }))
+      return
+    }
+    // No built-in simulation shows this exactly: let the AI write one.
+    if (ai.state === 'ready' && result.source !== 'keyword') {
+      await build(q, result.config ? result : null)
+      return
+    }
     if (!result.config) {
       notify('No template fits that prompt yet. Pick one from the library below and shape it with the sliders.', 'warn')
       setPanelOpen(true)
@@ -99,10 +149,12 @@ export default function App() {
       setTimeout(() => setFlashLibrary(false), 2400)
       return
     }
-    start(makeRun(result.config, { source: result.source, provider: result.provider, reason: result.reason, warnings: result.warnings }))
+    start(makeRun(result.config, { source: result.source, provider: result.provider, reason: result.reason, warnings: result.warnings, prompt: q }))
     if (result.source === 'fallback') notify(`AI unavailable or invalid, used the nearest template instead. (${result.reason})`, 'warn')
     if (result.source === 'keyword') notify('AI not configured: matched your prompt to a template by keywords.', 'info')
   }
+
+  const onSandboxError = useCallback((msg) => notify(`The AI-written simulation crashed: ${msg}. Press "Regenerate" to let the AI try again.`, 'warn'), [notify])
 
   const pick = (id) => start(makeRun({ template_id: id }, { source: 'manual' }))
 
@@ -135,7 +187,7 @@ export default function App() {
   })[ai.state], [ai])
 
   return (
-    <div className={`app ${loading ? 'is-loading' : ''}`}>
+    <div className={`app ${loading || building ? 'is-loading' : ''}`}>
       <div className="backdrop" aria-hidden />
       <header className="topbar">
         <div className="brand">
@@ -151,8 +203,8 @@ export default function App() {
             placeholder="Describe a simulation…  e.g. how a rumour spreads at a party" maxLength={300}
             aria-label="Describe a simulation"
           />
-          <button className="btn primary go" disabled={loading || !prompt.trim()}>
-            {loading ? <span className="spinner" /> : 'Simulate'}
+          <button className="btn primary go" disabled={loading || !!building || !prompt.trim()}>
+            {loading || building ? <span className="spinner" /> : 'Simulate'}
           </button>
         </form>
         <div className="top-right">
@@ -167,19 +219,29 @@ export default function App() {
 
       <div className="examples" role="list" aria-label="Example prompts">
         {EXAMPLES.map((ex) => (
-          <button key={ex} role="listitem" className="chip" onClick={() => submit(ex)} disabled={loading}>{ex}</button>
+          <button key={ex} role="listitem" className="chip" onClick={() => submit(ex)} disabled={loading || !!building}>{ex}</button>
         ))}
       </div>
 
       <main className="main">
         <section className="stage-wrap glass">
-          <Stage engine={run.engine} template={run.t} theme={theme} labels={run.meta.labels} runKey={run.meta.key} />
+          {building
+            ? <div className="stage-idle" aria-hidden /> /* scene paused so the AI gets the whole GPU */
+            : <Stage engine={run.engine} template={run.t} theme={theme} labels={run.meta.labels} runKey={run.meta.key} onSandboxError={onSandboxError} />}
           {!playing && <div className="paused-tag">Paused · press Space</div>}
           {loading && (
             <div className="composing">
               <div className="scan" />
               <p>Composing a simulation for<br /><b>“{prompt}”</b></p>
-              <small>{ai.state === 'ready' ? 'Asking the AI to pick a template and set its rules…' : 'Matching your words to the template library…'}</small>
+              <small>{ai.state === 'ready' ? 'Checking the built-in simulations first…' : 'Matching your words to the template library…'}</small>
+            </div>
+          )}
+          {building && (
+            <div className="composing">
+              <div className="scan" />
+              <p>No built-in simulation shows<br /><b>“{prompt}”</b></p>
+              <small>{building.step}… <span className="spinner" style={{ display: 'inline-block', verticalAlign: '-3px', width: 12, height: 12 }} /></small>
+              <pre className="code-live">{building.code ? building.code.split('\n').slice(-12).join('\n') : 'waiting for the model to start (the first run loads it, ~20 s)…'}</pre>
             </div>
           )}
         </section>
@@ -188,6 +250,8 @@ export default function App() {
           engine={run.engine} theme={theme} playing={playing} speed={speed} open={panelOpen} templates={TEMPLATES}
           flashLibrary={flashLibrary} onToggle={() => setPanelOpen((o) => !o)} onParam={onParam} onPlay={togglePlay}
           onReset={reset} onSpeed={onSpeed} onAction={(id) => run.engine.act(id)} onPick={pick}
+          canBuild={ai.state === 'ready' && !building && !loading && !!(run.meta.prompt || prompt.trim())}
+          onBuild={() => build(run.meta.prompt || prompt.trim(), null)}
         />
       </main>
 
