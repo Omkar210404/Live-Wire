@@ -7,6 +7,7 @@ export default {
   id: 'forestfire',
   name: 'Forest fire spread',
   summary: 'A cellular automaton: each burning cell can ignite its eight neighbours, pushed by the wind. Tree density decides whether a fire fizzles out or sweeps the whole forest.',
+  setting: 'a square forest seen from above',
   keywords: ['fire', 'forest', 'wildfire', 'bushfire', 'burn', 'burning', 'flames', 'blaze', 'trees', 'wind', 'cellular automaton', 'automata', 'grid', 'percolation', 'drought', 'wildland', 'smoke'],
   view: '2d',
   sharedScale: true,

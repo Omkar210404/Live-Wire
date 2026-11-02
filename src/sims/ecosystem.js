@@ -10,6 +10,7 @@ export default {
   id: 'ecosystem',
   name: 'Predator–prey ecosystem',
   summary: 'Agent-based Lotka–Volterra: prey breed toward a carrying capacity, predators hunt them, breed when well fed and starve when prey runs short. Populations chase each other in cycles.',
+  setting: 'sheep and wolves on an open meadow',
   keywords: ['predator', 'prey', 'ecosystem', 'ecology', 'wolves', 'wolf', 'sheep', 'rabbits', 'rabbit', 'foxes', 'fox', 'lynx', 'hare', 'hunt', 'food chain', 'lotka', 'volterra', 'population', 'wildlife', 'animals', 'sharks', 'nature', 'balance'],
   view: '2d',
   sharedScale: true,

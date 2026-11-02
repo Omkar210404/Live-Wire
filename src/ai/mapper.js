@@ -13,7 +13,7 @@ export function buildSystemPrompt(templates = TEMPLATES) {
       .map(([k, p]) => `    ${k} (${p.min}-${p.max}, default ${p.default}${p.unit ? ' ' + p.unit : ''}): ${p.help || p.label}`)
       .join('\n')
     const labels = Object.entries(t.labels).map(([k, v]) => `${k}="${v}"`).join(', ')
-    return `- id: ${t.id}\n  what: ${t.summary}\n  keywords: ${t.keywords.join(', ')}\n  params:\n${params}\n  labels: ${labels}`
+    return `- id: ${t.id}\n  what: ${t.summary}\n  setting: ${t.setting || 'n/a'}\n  keywords: ${t.keywords.join(', ')}\n  params:\n${params}\n  labels: ${labels}`
   })
   return [
     'You configure simulations for Livewire. You do NOT invent physics.',
@@ -22,8 +22,11 @@ export function buildSystemPrompt(templates = TEMPLATES) {
     ...lines,
     '',
     'Reply with JSON only, no prose, exactly this shape:',
-    '{"fit": "direct|analogy|none", "template_id": "<id>", "params": {"<param>": <number>}, "title": "<max 6 words>", "description": "<2-3 plain sentences: what is being simulated, what to watch for, and that it is a simplified model>", "label_overrides": {"<label key>": "<new name>"}}',
+    '{"fit": "direct|analogy|none", "exact": true|false, "template_id": "<id>", "params": {"<param>": <number>}, "title": "<max 6 words>", "description": "<2-3 plain sentences describing what THIS template shows (its setting), what to watch for, and that it is a simplified model>", "label_overrides": {"<label key>": "<new name>"}}',
     'Use label_overrides only to rename stats into the user\'s domain (e.g. zombies: {"I": "Zombies"}). Use only the label keys listed for the chosen template.',
+    'If the request mentions an intensity (strong, dry, fast, slow, crowded, many, few, deadly), move the matching params well away from their defaults.',
+    'fit: "direct" if the request is about one of the systems above, "analogy" if it behaves like one (a rumour spreads like an epidemic), "none" if it is not a system that moves or spreads at all (recipes, essays, maths homework). With fit "none" use template_id "none".',
+    'exact: true only if the chosen template\'s setting really shows the specific scene the user asked for. If the user names a place, layout or object the setting does not have (e.g. asks for an intersection but the setting is a ring road, or a beach but the setting is a meadow), exact is false.',
   ].join('\n')
 }
 
@@ -33,13 +36,14 @@ export function responseSchema(templates = TEMPLATES) {
     type: 'object',
     properties: {
       fit: { type: 'string', enum: ['direct', 'analogy', 'none'] },
+      exact: { type: 'boolean' },
       template_id: { type: 'string', enum: [...templates.map((t) => t.id), 'none'] },
       params: { type: 'object' },
       title: { type: 'string' },
       description: { type: 'string' },
       label_overrides: { type: 'object' },
     },
-    required: ['fit', 'template_id', 'params', 'title', 'description'],
+    required: ['fit', 'exact', 'template_id', 'params', 'title', 'description'],
   }
 }
 
@@ -144,5 +148,9 @@ export async function mapPrompt(prompt, provider) {
   if (parsed?.template_id === 'none' || parsed?.fit === 'none') return viaKeywords('fallback', 'AI found no template that fits')
   const v = validate(parsed)
   if (!v.ok) return viaKeywords('fallback', `AI output rejected: ${v.error}`)
-  return { source: 'ai', config: v.value, reason: null, warnings: v.warnings }
+  // exact=false: the template is only the nearest match (asked for an intersection, got a ring road)
+  // Small models often answer exact=false even for a perfect match, so a keyword
+  // hit on the chosen template also counts as exact.
+  const keywordHit = (keywordRank(text).find((r) => r.id === v.value.template_id)?.score || 0) > 0
+  return { source: 'ai', config: v.value, reason: null, warnings: v.warnings, exact: parsed.exact === true || keywordHit }
 }

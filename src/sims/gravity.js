@@ -7,6 +7,7 @@ export default {
   id: 'gravity',
   name: 'Gravity (n-body)',
   summary: 'Every particle pulls on every other with Newtonian gravity (softened). A spinning cloud collapses into clumps, arms and orbiting clusters.',
+  setting: 'particles in empty space',
   keywords: ['gravity', 'galaxy', 'galaxies', 'planet', 'planets', 'star', 'stars', 'orbit', 'orbits', 'n-body', 'nbody', 'space', 'universe', 'cosmic', 'solar', 'nebula', 'cluster', 'particles', 'particle', 'physics', 'attraction', 'black hole', 'asteroid', 'dust', 'accretion'],
   view: '3d',
   params: {

@@ -5,6 +5,7 @@ export default {
   id: 'boids',
   name: 'Flocking (boids)',
   summary: 'Reynolds boids in 3D: each agent only follows three local rules (separation, alignment, cohesion), yet a coordinated flock emerges.',
+  setting: 'a flock flying freely in 3D sky',
   keywords: ['flock', 'flocking', 'bird', 'birds', 'boids', 'starling', 'murmuration', 'fish', 'school', 'swarm', 'herd', 'drone', 'drones', 'crowd', 'bees', 'insects', 'collective', 'emergent', 'emergence'],
   view: '3d',
   params: {

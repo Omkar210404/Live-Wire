@@ -8,6 +8,7 @@ export default {
   id: 'traffic',
   name: 'Traffic flow & phantom jams',
   summary: 'Cars on a ring road follow the Intelligent Driver Model. With no accident and no bottleneck, small random braking grows into stop-and-go waves that travel backward.',
+  setting: 'a single-lane ring road (a circle, no intersections or traffic lights)',
   keywords: ['traffic', 'jam', 'jams', 'car', 'cars', 'road', 'highway', 'freeway', 'motorway', 'commute', 'congestion', 'rush hour', 'driving', 'drivers', 'stop-and-go', 'phantom', 'lane', 'vehicles', 'gridlock'],
   view: '2d',
   timeScale: 3,

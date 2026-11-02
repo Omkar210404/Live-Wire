@@ -7,6 +7,7 @@ export default {
   id: 'epidemic',
   name: 'Epidemic spread',
   summary: 'Agent-based SIR model: people wander, infection jumps between people who come close, then they recover with immunity.',
+  setting: 'people wandering around an open city square',
   keywords: ['disease', 'epidemic', 'pandemic', 'virus', 'infection', 'infect', 'outbreak', 'flu', 'covid', 'zombie', 'contagion', 'sir', 'rumor', 'rumour', 'gossip', 'meme', 'viral', 'vaccine', 'quarantine', 'plague', 'immunity'],
   view: '2d',
   sharedScale: true,
