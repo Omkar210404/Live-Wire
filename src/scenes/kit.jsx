@@ -110,3 +110,23 @@ export const treeModel = (canopy = '#ffffff') => model([
 ])
 
 export const UP = new THREE.Vector3(0, 1, 0)
+
+export const CAR_COLORS = ['#e5484d', '#3e8ef7', '#f5f5f2', '#2b2f36', '#f2b33d', '#30a46c', '#8e4ec6', '#c2c7cf']
+
+/** Low-poly car (metres, forward = +Z) plus brake-light and headlight geometry. */
+export const carGeometries = () => ({
+  car: model([
+    [new THREE.BoxGeometry(1.8, 0.55, 4.2), '#ffffff', { p: [0, 0.55, 0] }],
+    [new THREE.BoxGeometry(1.55, 0.5, 2.1), '#1c2230', { p: [0, 1.05, -0.25] }],
+    ...[[-0.85, 1.3], [0.85, 1.3], [-0.85, -1.3], [0.85, -1.3]].map(([x, z]) =>
+      [new THREE.CylinderGeometry(0.34, 0.34, 0.25, 8).rotateZ(Math.PI / 2), '#111111', { p: [x, 0.34, z] }]),
+  ]),
+  brake: model([
+    [new THREE.BoxGeometry(0.45, 0.18, 0.06), '#ffffff', { p: [-0.6, 0.65, -2.12] }],
+    [new THREE.BoxGeometry(0.45, 0.18, 0.06), '#ffffff', { p: [0.6, 0.65, -2.12] }],
+  ]),
+  head: model([
+    [new THREE.BoxGeometry(0.4, 0.15, 0.06), '#ffffff', { p: [-0.6, 0.62, 2.12] }],
+    [new THREE.BoxGeometry(0.4, 0.15, 0.06), '#ffffff', { p: [0.6, 0.62, 2.12] }],
+  ]),
+})

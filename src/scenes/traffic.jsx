@@ -3,10 +3,9 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { Shell, model, hash, groundGeometry, treeModel } from './kit.jsx'
+import { Shell, model, hash, groundGeometry, treeModel, carGeometries, CAR_COLORS } from './kit.jsx'
 
 const K = 0.3 // scene units per metre
-const CAR_COLORS = ['#e5484d', '#3e8ef7', '#f5f5f2', '#2b2f36', '#f2b33d', '#30a46c', '#8e4ec6', '#c2c7cf']
 
 export default function TrafficScene({ engine, theme }) {
   const R = (engine.state.L * K) / (Math.PI * 2)
@@ -21,22 +20,7 @@ export default function TrafficScene({ engine, theme }) {
 function Cars({ engine, R, theme }) {
   const cars = useRef(), brakes = useRef(), heads = useRef(), beacon = useRef()
   const n0 = engine.state.n
-  const geo = useMemo(() => ({
-    car: model([
-      [new THREE.BoxGeometry(1.8, 0.55, 4.2), '#ffffff', { p: [0, 0.55, 0] }],
-      [new THREE.BoxGeometry(1.55, 0.5, 2.1), '#1c2230', { p: [0, 1.05, -0.25] }],
-      ...[[-0.85, 1.3], [0.85, 1.3], [-0.85, -1.3], [0.85, -1.3]].map(([x, z]) =>
-        [new THREE.CylinderGeometry(0.34, 0.34, 0.25, 8).rotateZ(Math.PI / 2), '#111111', { p: [x, 0.34, z] }]),
-    ]),
-    brake: model([
-      [new THREE.BoxGeometry(0.45, 0.18, 0.06), '#ffffff', { p: [-0.6, 0.65, -2.12] }],
-      [new THREE.BoxGeometry(0.45, 0.18, 0.06), '#ffffff', { p: [0.6, 0.65, -2.12] }],
-    ]),
-    head: model([
-      [new THREE.BoxGeometry(0.4, 0.15, 0.06), '#ffffff', { p: [-0.6, 0.62, 2.12] }],
-      [new THREE.BoxGeometry(0.4, 0.15, 0.06), '#ffffff', { p: [0.6, 0.62, 2.12] }],
-    ]),
-  }), [])
+  const geo = useMemo(() => carGeometries(), [])
   const tmp = useMemo(() => ({ o: new THREE.Object3D(), prev: new Float64Array(n0), hidden: new THREE.Matrix4().makeScale(0, 0, 0) }), [n0])
 
   useFrame(({ clock }, delta) => {
