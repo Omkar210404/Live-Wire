@@ -1,5 +1,7 @@
 # Livewire
 
+**In one line:** Livewire turns a plain-English sentence into a live simulation you can play with. A local AI either sets up one of seven built-in 3D simulations or writes a brand-new one when none fits.
+
 Type a prompt in plain English and get a **live, interactive simulation**. Drag sliders to change the rules and watch the system react in real time.
 
 ![Zombie outbreak prompt mapped to the epidemic template by a local LLM](docs/zombies.jpg)
@@ -64,36 +66,93 @@ All six are low-poly 3D scenes built in code (no model downloads), rendered with
 | **Phantom traffic jams** | **Galaxy forming** | |
 | ![traffic](docs/traffic.jpg) | ![galaxy](docs/galaxy.jpg) | |
 
-### Adding a 7th template
+### Adding another template
 
 Drop one file in `src/sims/` that follows the contract documented at the top of [`src/sims/manifest.js`](src/sims/manifest.js): `params` schema, `init`, `step`, `stats`, and `render` (2D) or `render3d` (3D). Then add one import line to the manifest. The AI prompt, keyword fallback, sliders, chart, HUD and self-test all pick it up from there, and it runs right away with that flat view. For a custom 3D scene, add `src/scenes/<id>.jsx`, which is picked up automatically.
 
-## Run it
+## AI model used
 
-Needs Node 18+.
+| | |
+|---|---|
+| Model | **Llama 3.2 3B** (`llama3.2:3b`, by Meta), about 2 GB |
+| Runs on | [Ollama](https://ollama.com), locally on your own computer: free, offline, no API key |
+| Used for | 1) mapping a prompt to a built-in simulation (JSON output at temperature 0), and 2) writing new simulation code in experimental mode (streamed) |
+| Tested on | a laptop with a Ryzen 5 5600H and 16 GB RAM: about 36 tokens/s, 15–20 s for a mapping, 30–90 s for a generated simulation |
+| Optional | Gemini free tier (`AI_PROVIDER=gemini`). Supported in code but **not tested** (no key during development). |
 
+I also tried `qwen2.5-coder:7b` for writing code. It was too slow on this laptop (about 6 tokens/s, because half of it ran on the CPU), so the project uses `llama3.2:3b` for both jobs. To try a different model for code only, set `CODE_MODEL` in `.env`.
+
+## Run it: step by step
+
+### 1. Install Node.js
+Install Node.js 18 or newer from [nodejs.org](https://nodejs.org). Check it with:
 ```bash
-npm install
-npm run dev          # app + API on http://localhost:5173
+node -v
 ```
 
-Production:
+### 2. Get the code and install packages
+```bash
+git clone https://github.com/Omkar210404/livewire.git
+cd livewire
+npm install
+```
 
+### 3. Install Ollama (the free local AI runner)
+- **Windows:** download the installer from [ollama.com/download](https://ollama.com/download), run `OllamaSetup.exe`, and follow the steps.
+- **macOS:** download the app from [ollama.com/download](https://ollama.com/download) and move it to Applications.
+- **Linux:** `curl -fsSL https://ollama.com/install.sh | sh`
+
+Check that it's installed:
+```bash
+ollama --version
+```
+
+### 4. Download the model (about 2 GB, one time)
+```bash
+ollama pull llama3.2:3b
+ollama list            # llama3.2:3b should appear here
+```
+
+### 5. Make sure Ollama is running
+On Windows and macOS it usually starts by itself after installing (look for the llama icon in the tray or menu bar). If it isn't running, start it in a separate terminal and leave that window open:
+```bash
+ollama serve
+```
+Opening http://127.0.0.1:11434 in a browser should show "Ollama is running".
+
+### 6. Create your settings file
+```bash
+cp .env.example .env          # macOS / Linux / Git Bash
+copy .env.example .env        # Windows Command Prompt / PowerShell
+```
+The defaults already use Ollama with `llama3.2:3b`, so you don't need to edit anything.
+
+### 7. Start Livewire
+```bash
+npm run dev
+```
+Open **http://localhost:5173**. The pill at the top right should say **"Ollama ready"**. The first prompt takes about 20 s longer while the model loads into memory.
+
+### 8. (Optional) Run the self-test
+```bash
+npm run selftest
+```
+
+### Troubleshooting
+- **"Ollama not reachable"**: Ollama isn't running. Do step 5.
+- **"model is not pulled"**: do step 4.
+- **"AI not configured"**: `.env` is missing or `AI_PROVIDER` is blank. Do step 6. The app still works without AI: pick a simulation from the library and use the sliders.
+
+### Production build
 ```bash
 npm run build
 npm start            # serves dist/ + /api on http://localhost:8787
 ```
 
-### Turning on the AI (free, two options)
+### Using Gemini instead of Ollama (optional, untested)
+In `.env`, set `AI_PROVIDER=gemini` and `GEMINI_API_KEY=<your key>` (a free key from Google AI Studio). Change `GEMINI_MODEL` if the default model is retired.
 
-```bash
-cp .env.example .env
-```
-
-- **Local Ollama** (offline, no key): install [Ollama](https://ollama.com), run `ollama pull llama3.2:3b` (about 2 GB), and set `AI_PROVIDER=ollama`.
-- **Gemini free tier**: set `AI_PROVIDER=gemini` and `GEMINI_API_KEY=` (key from Google AI Studio). Change `GEMINI_MODEL` if the default is retired.
-
-Keys live only in `.env`, which is git-ignored, and are read only by the Node server. The browser never sees them. Leave `AI_PROVIDER` blank to run without AI.
+Keys live only in `.env`, which is git-ignored, and are read only by the Node server. The browser never sees them.
 
 **Keyboard:** `Space` play/pause · `R` reset · `/` focus the prompt.
 
