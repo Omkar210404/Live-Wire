@@ -2,7 +2,7 @@
 // that follows the contract below, then add one import + one array entry.
 //
 // Template contract (plain JS, no browser APIs outside render):
-//   id, name, summary, keywords[]   - identity + what the AI / keyword fallback see
+//   id, name, summary, setting, keywords[] - identity + what the AI / keyword fallback see
 //   view: '2d' | '3d'               - Canvas 2D or Three.js instanced mesh
 //   params: { key: { label, min, max, step, default, unit?, help?,
 //                    restart?  - changing it re-initialises the sim
@@ -18,11 +18,12 @@
 import epidemic from './epidemic.js'
 import boids from './boids.js'
 import ecosystem from './ecosystem.js'
+import intersection from './intersection.js'
 import traffic from './traffic.js'
 import gravity from './gravity.js'
 import forestfire from './forestfire.js'
 
-export const TEMPLATES = [epidemic, boids, ecosystem, traffic, gravity, forestfire]
+export const TEMPLATES = [epidemic, boids, ecosystem, intersection, traffic, gravity, forestfire]
 
 export const byId = (id) => TEMPLATES.find((t) => t.id === id)
 
